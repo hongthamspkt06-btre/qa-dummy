@@ -303,7 +303,6 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
 <div class="toast" id="toast"></div>
 
 <script>
-const STORAGE_KEY = 'qa_dummy_list_update_v1';
 const SIG_IMG = "data:image/png;base64,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";
 const SIGN_PASSWORD = "kimjs2026";
 const APPROVER_NAME = "Kim Joo Shik";
@@ -323,18 +322,24 @@ function $(id){return document.getElementById(id)}
 function esc(v){
   return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
-function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    entries:state.entries, sign:state.sign
-  }));
+function gsRun(fnName, ...args){
+  return new Promise((resolve, reject)=>{
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fnName](...args);
+  });
+}
+function applyServerData(data){
+  data=data||{};
+  state.entries=Array.isArray(data.entries)?data.entries:[];
+  const oldSign=data.sign||{};
+  state.sign={approved:!!oldSign.approved,approvedAt:oldSign.approvedAt||null,approvedBy:oldSign.approvedBy||null,rejected:!!oldSign.rejected,rejectedAt:oldSign.rejectedAt||null,rejectedBy:oldSign.rejectedBy||null,rejectComment:oldSign.rejectComment||''};
+  renderFilters(); render();
+}
+function handleServerError(err){
+  console.error(err);
+  showToast('⚠ Lỗi kết nối server, vui lòng thử lại');
 }
 function load(){
-  try{
-    const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
-    state.entries=Array.isArray(d.entries)?d.entries:[];
-    const oldSign=d.sign||{}; state.sign={approved:!!oldSign.approved,approvedAt:oldSign.approvedAt||oldSign.at||null,approvedBy:oldSign.approvedBy||oldSign.by||null,rejected:!!oldSign.rejected,rejectedAt:oldSign.rejectedAt||oldSign.at||null,rejectedBy:oldSign.rejectedBy||oldSign.by||null,rejectComment:oldSign.rejectComment||oldSign.comment||''};
-  }catch(e){console.error(e)}
-  renderFilters(); render();
+  google.script.run.withSuccessHandler(applyServerData).withFailureHandler(handleServerError).getData();
 }
 function uniqueSorted(field){
   return [...new Set(state.entries.map(e=>e[field]).filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
@@ -377,7 +382,7 @@ function render(){
       <td>${esc(e.size)}</td>
       <td>${esc(e.year)}</td>
       <td><b>${esc(e.code)}</b></td>
-      <td>${e.imageDataUrl?`<img class="photo-thumb" src="${e.imageDataUrl}" data-photo="${e.id}" alt="Photo">`:`<div class="photo-empty">No photo</div>`}</td>
+      <td>${e.imageUrl?`<img class="photo-thumb" src="${e.imageUrl}" data-photo="${e.id}" alt="Photo" loading="lazy">`:`<div class="photo-empty">No photo</div>`}</td>
       <td>${state.editingLocationId===e.id?`
         <input type="text" id="locEditInput" class="loc-edit-input" value="${esc(state.editingLocationValue)}">
         <div class="loc-edit-actions">
@@ -428,14 +433,14 @@ function saveEditLocation(id){
   const entry=state.entries.find(e=>e.id===id);
   if(!entry){state.editingLocationId=null;render();return;}
   const newVal=(state.editingLocationValue||'').trim();
-  if(newVal!==entry.location){
-    entry.location=newVal;
-    entry.locationUpdatedAt=new Date().toISOString();
-    save();
-  }
   state.editingLocationId=null;
   state.editingLocationValue='';
+  if(newVal===entry.location){render();return;}
   render();
+  google.script.run
+    .withSuccessHandler(applyServerData)
+    .withFailureHandler(function(err){console.error(err);alert('Không thể lưu location trên server, vui lòng thử lại.');})
+    .updateEntryLocation(id, newVal);
 }
 function resetSignUI(){ state.signUI={confirmingSign:false,confirmingUnlock:false,confirmingReject:false,showSignOffActions:false,pwInput:'',pwError:'',rejectComment:''}; }
 function fmtSignDateTime(iso){if(!iso)return '';const d=new Date(iso);if(isNaN(d.getTime()))return String(iso);const pad=n=>String(n).padStart(2,'0');return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
@@ -501,13 +506,13 @@ function askSignConfirm(){state.signUI.confirmingSign=true;state.signUI.showSign
 function cancelSignConfirm(){resetSignUI();render()}
 function confirmSignPassword(){if(state.signUI.pwInput!==SIGN_PASSWORD){state.signUI.pwError='Incorrect password.';render();return}state.signUI.confirmingSign=false;state.signUI.pwInput='';state.signUI.pwError='';state.signUI.showSignOffActions=true;render()}
 function cancelSignOffActions(){resetSignUI();render()}
-function doSignApprove(){state.signUI.showSignOffActions=false;state.sign={approved:true,approvedAt:new Date().toISOString(),approvedBy:APPROVER_NAME,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};save();render()}
+function doSignApprove(){state.signUI.showSignOffActions=false;const signObj={approved:true,approvedAt:new Date().toISOString(),approvedBy:APPROVER_NAME,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};state.sign=signObj;render();google.script.run.withSuccessHandler(applyServerData).withFailureHandler(handleServerError).saveSignState(signObj)}
 function askRejectConfirm(){state.signUI.confirmingReject=true;state.signUI.pwError='';state.signUI.rejectComment='';render();setTimeout(()=>{const e=$('rejectCommentField');if(e)e.focus()},0)}
 function cancelRejectConfirm(){resetSignUI();render()}
-function doRejectApprove(){if(!state.signUI.rejectComment.trim()){state.signUI.pwError='Please enter a comment.';render();return}state.sign={approved:false,approvedAt:null,approvedBy:null,rejected:true,rejectedAt:new Date().toISOString(),rejectedBy:APPROVER_NAME,rejectComment:state.signUI.rejectComment.trim()};resetSignUI();save();render()}
+function doRejectApprove(){if(!state.signUI.rejectComment.trim()){state.signUI.pwError='Please enter a comment.';render();return}const signObj={approved:false,approvedAt:null,approvedBy:null,rejected:true,rejectedAt:new Date().toISOString(),rejectedBy:APPROVER_NAME,rejectComment:state.signUI.rejectComment.trim()};state.sign=signObj;resetSignUI();render();google.script.run.withSuccessHandler(applyServerData).withFailureHandler(handleServerError).saveSignState(signObj)}
 function askUnlockConfirm(){state.signUI.confirmingUnlock=true;state.signUI.pwInput='';state.signUI.pwError='';render();setTimeout(()=>{const e=$('pwFieldUnlock');if(e)e.focus()},0)}
 function cancelUnlockConfirm(){resetSignUI();render()}
-function doUnlockApprove(){if(state.signUI.pwInput!==SIGN_PASSWORD){state.signUI.pwError='Incorrect password.';render();return}state.sign={approved:false,approvedAt:null,approvedBy:null,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};resetSignUI();save();render()}
+function doUnlockApprove(){if(state.signUI.pwInput!==SIGN_PASSWORD){state.signUI.pwError='Incorrect password.';render();return}const signObj={approved:false,approvedAt:null,approvedBy:null,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};state.sign=signObj;resetSignUI();render();google.script.run.withSuccessHandler(applyServerData).withFailureHandler(handleServerError).saveSignState(signObj)}
 function bindApprovalRowEvents(){const sob=$('signOffBtn');if(sob)sob.onclick=askSignConfirm;const sy=$('signYes');if(sy)sy.onclick=confirmSignPassword;const sn=$('signNo');if(sn)sn.onclick=cancelSignConfirm;const pw=$('pwField');if(pw){pw.oninput=e=>state.signUI.pwInput=e.target.value;pw.onkeydown=e=>{if(e.key==='Enter')confirmSignPassword()}}const ap=$('approveBtn');if(ap)ap.onclick=doSignApprove;const ns=$('notSignBtn');if(ns)ns.onclick=askRejectConfirm;const ca=$('cancelActionBtn');if(ca)ca.onclick=cancelSignOffActions;const ry=$('rejectYes');if(ry)ry.onclick=doRejectApprove;const rc=$('rejectCancelBtn');if(rc)rc.onclick=cancelRejectConfirm;const rcf=$('rejectCommentField');if(rcf)rcf.oninput=e=>state.signUI.rejectComment=e.target.value;const ub=$('unlockBtn');if(ub)ub.onclick=askUnlockConfirm;const uy=$('unlockYes');if(uy)uy.onclick=doUnlockApprove;const un=$('unlockNo');if(un)un.onclick=cancelUnlockConfirm;const pwu=$('pwFieldUnlock');if(pwu){pwu.oninput=e=>state.signUI.pwInput=e.target.value;pwu.onkeydown=e=>{if(e.key==='Enter')doUnlockApprove()}}}
 function renderApproval(){const row=$('approvalRow');row.innerHTML=`<div class="approval-left">${buildApprovalLeftHtml()}</div><div>${buildApprovalRightHtml()}</div>`;bindApprovalRowEvents();}
 /* ===== AI Label Reading (image → Buyer/Category/Size/Year/Code) ===== */
@@ -577,6 +582,26 @@ async function ocrLabel(dataUrl){
 function setDzStatus(html){$('dzHint').innerHTML=html?`<div class="small-note">${html}</div>`:'';}
 function renderDzPreview(){$('dzPreview').innerHTML=state.pendingImage?`<img src="${state.pendingImage}" alt="Preview nhãn size">`:'';}
 
+function resizeImageDataUrl(dataUrl, maxDim, quality){
+  maxDim = maxDim || 1000; quality = quality || 0.72;
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.width, h=img.height;
+      if(w>maxDim||h>maxDim){
+        if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}
+        else{w=Math.round(w*maxDim/h);h=maxDim;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
+
 async function processImage(file){
   if(!file)return;
   const locked=state.sign.approved||state.sign.rejected;
@@ -584,7 +609,7 @@ async function processImage(file){
   if(!file.type||!file.type.startsWith('image/')){alert('Vui lòng chọn file hình ảnh.');return;}
   const reader=new FileReader();
   reader.onload=async()=>{
-    state.pendingImage=reader.result;
+    state.pendingImage=await resizeImageDataUrl(reader.result);
     renderDzPreview();
     setDzStatus('⏳ Loading...');
     try{
@@ -614,27 +639,44 @@ function addEntry(){
   const code=$('fCode').value.trim();
   const location=$('fLocation').value.trim();
   if(!buyer||!category||!size||!year||!code){alert('Vui lòng nhập đủ Buyer, Category, Size, Year, Code trước khi Add.');return;}
-  state.entries.push({id:'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),buyer,category,size,year,code,location,imageDataUrl:state.pendingImage||null});
-  ['fBuyer','fCategory','fSize','fYear','fCode','fLocation'].forEach(id=>{$(id).value='';});
-  state.pendingImage=null;
-  renderDzPreview();
-  setDzStatus('');
-  save();renderFilters();render();
+  const entryData={buyer,category,size,year,code,location,imageDataUrl:state.pendingImage||null};
+  const btn=$('btnAdd'); const btnLabel=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+  google.script.run
+    .withSuccessHandler(function(data){
+      if(btn){btn.disabled=false;btn.textContent=btnLabel;}
+      ['fBuyer','fCategory','fSize','fYear','fCode','fLocation'].forEach(id=>{$(id).value='';});
+      state.pendingImage=null;
+      renderDzPreview();
+      setDzStatus('');
+      applyServerData(data);
+    })
+    .withFailureHandler(function(err){
+      if(btn){btn.disabled=false;btn.textContent=btnLabel;}
+      console.error(err);
+      alert('Không thể lưu dữ liệu lên server, vui lòng thử lại.');
+    })
+    .addEntry(entryData);
 }
 
 function removeEntry(id){
   const locked=state.sign.approved||state.sign.rejected;
   if(locked){alert('Form đã khóa sau khi ký duyệt (Sign-Off). Vui lòng Unlock trước khi xóa.');return;}
   if(!confirm('Are you sure to delete?'))return;
-  state.entries=state.entries.filter(e=>e.id!==id);
-  save();renderFilters();render();
+  google.script.run
+    .withSuccessHandler(applyServerData)
+    .withFailureHandler(function(err){console.error(err);alert('Không thể xóa trên server, vui lòng thử lại.');})
+    .deleteEntry(id);
 }
 
 function showPhoto(src){$('modalImage').src=src;$('photoModal').classList.add('show')}
 function exportExcel(){
+  const btnEx=$('btnExport'); const btnExLabel=btnEx?btnEx.textContent:'';
+  if(btnEx){btnEx.disabled=true;btnEx.textContent='Đang xuất...';}
   const script=document.createElement('script');
   script.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
   script.onload=async()=>{
+   try{
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Dummy');
     const thinBorder={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
@@ -673,7 +715,8 @@ function exportExcel(){
     headerRow.height=20.25;
     ws.views=[{state:'frozen',ySplit:3,showGridLines:false}];
 
-    state.entries.forEach((e,i)=>{
+    for(let i=0;i<state.entries.length;i++){
+      const e=state.entries[i];
       const r=4+i;
       const row=ws.getRow(r);
       row.getCell(1).value={formula:'ROW()-3'};
@@ -690,19 +733,18 @@ function exportExcel(){
         cell.alignment={horizontal:(c===1||c===7)?'center':'left',vertical:'center',wrapText:true};
         cell.border=thinBorder;
       }
-      if(e.imageDataUrl){
+      if(e.imageFileId){
         try{
-          const m=e.imageDataUrl.match(/^data:image\/(\w+);base64,/);
-          const ext=m?(m[1]==='jpg'?'jpeg':m[1]):'jpeg';
-          const base64=e.imageDataUrl.split(',')[1];
-          const imgId=wb.addImage({base64,extension:ext});
+          const img=await gsRun('getImageBase64', e.imageFileId);
+          const ext=(img.mimeType||'image/jpeg').split('/')[1]==='jpg'?'jpeg':(img.mimeType||'image/jpeg').split('/')[1];
+          const imgId=wb.addImage({base64:img.base64,extension:ext});
           ws.addImage(imgId,{tl:{col:6,row:r-1},ext:{width:150,height:150}});
           row.height=122.25;
-        }catch(err){row.height=20.25;}
+        }catch(err){console.error(err);row.height=20.25;}
       }else{
         row.height=20.25;
       }
-    });
+    }
 
     const totalRowIdx=4+state.entries.length;
     ws.mergeCells(`A${totalRowIdx}:G${totalRowIdx}`);
@@ -721,8 +763,14 @@ function exportExcel(){
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='QA_Dummy_List.xlsx';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+   }catch(err){
+    console.error(err);
+    alert('Xuất Excel thất bại, vui lòng thử lại.');
+   }finally{
+    if(btnEx){btnEx.disabled=false;btnEx.textContent=btnExLabel;}
+   }
   };
-  script.onerror=()=>alert('Unable to load Excel export library. Please check internet connection.');
+  script.onerror=()=>{if(btnEx){btnEx.disabled=false;btnEx.textContent=btnExLabel;}alert('Unable to load Excel export library. Please check internet connection.');};
   document.head.appendChild(script);
 }
 
@@ -745,8 +793,16 @@ $('btnRefresh').onclick=()=>{
   btn.classList.remove('spinning');
   void btn.offsetWidth; // buộc reflow để animation luôn chạy lại từ đầu kể cả bấm liên tục
   btn.classList.add('spinning');
-  load();
-  showToast('✓ Đã làm mới dữ liệu');
+  google.script.run
+    .withSuccessHandler(function(data){
+      applyServerData(data);
+      showToast('✓ Đã làm mới dữ liệu');
+    })
+    .withFailureHandler(function(err){
+      console.error(err);
+      showToast('⚠ Không thể làm mới, vui lòng thử lại');
+    })
+    .getData();
   setTimeout(()=>btn.classList.remove('spinning'),500);
 };
 function showToast(msg){
