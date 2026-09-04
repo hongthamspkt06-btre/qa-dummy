@@ -1036,7 +1036,7 @@ async function buildExportWorkbookBuffer(){
   const titleCell=ws.getCell('A1');
   titleCell.value='QA DUMMY UPDATE';
   titleCell.font={name:'Calibri',size:16,bold:true};
-  titleCell.alignment={horizontal:'center',vertical:'center',wrapText:true};
+  titleCell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
   ws.getRow(1).height=20.25;
 
   // Logo công ty ở góc trên cùng bên phải (chồng lên vùng tiêu đề, không chiếm ô dữ liệu)
@@ -1050,7 +1050,7 @@ async function buildExportWorkbookBuffer(){
   const updatedCell=ws.getCell('A2');
   updatedCell.value=`Updated: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   updatedCell.font={name:'Calibri',size:10,italic:true};
-  updatedCell.alignment={vertical:'center'};
+  updatedCell.alignment={vertical:'middle'};
   ws.getRow(2).height=20.25;
 
   const headers=['No.','Photo','Buyer','Category','Size','Year','Code','Location'];
@@ -1059,7 +1059,7 @@ async function buildExportWorkbookBuffer(){
     const cell=headerRow.getCell(i+1);
     cell.value=h;
     cell.font={name:'Calibri',size:10,bold:true};
-    cell.alignment={horizontal:'center',vertical:'center',wrapText:true};
+    cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
     cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEADER_FILL}};
     cell.border=thinBorder;
   });
@@ -1098,7 +1098,7 @@ async function buildExportWorkbookBuffer(){
     for(let c=1;c<=8;c++){
       const cell=row.getCell(c);
       cell.font={name:'Calibri',size:10};
-      cell.alignment={horizontal:'center',vertical:'center',wrapText:true};
+      cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
       cell.border=thinBorder;
     }
     const img=e.imageFileId?imageCache.get(e.imageFileId):null;
@@ -1122,7 +1122,7 @@ async function buildExportWorkbookBuffer(){
     cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:TOTAL_FILL}};
     cell.border=thinBorder;
     cell.font={name:'Calibri',size:10,bold:true};
-    cell.alignment={horizontal:'center',vertical:'center'};
+    cell.alignment={horizontal:'center',vertical:'middle'};
   }
   ws.getCell(`A${totalRowIdx}`).value='Total';
   ws.getCell(`G${totalRowIdx}`).value=entries.length?{formula:`COUNTA(A4:A${totalRowIdx-1})`,result:entries.length}:0;
