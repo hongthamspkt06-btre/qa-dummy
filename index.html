@@ -551,16 +551,19 @@ function renderApproval(){const row=$('approvalRow');row.innerHTML=`<div class="
  *   Dòng cuối: Code
  * Đây là suy luận heuristic dựa trên thứ tự dòng chữ đọc được — kết quả là
  * gợi ý, người dùng vẫn cần kiểm tra lại trước khi Add (UI đã nhắc sẵn). */
+const BUYER_MAP=[
+  [/WAL[\s-]?MART|WALMART/i,'Wal-Mart'],
+  [/AMERICAN\s+EAGLE|AERIE/i,'AEO'],
+  [/\bGAP\b|OLD\s+NAVY/i,'GAP / OLD NAVY'],
+  [/HOLLISTER|ABERCROMBIE/i,'A&F'],
+  [/EXPRESS/i,'Express'],
+  [/TARGET/i,'Target'],
+  [/LA\s+SENZA|VICTORIA.?S\s+SECRET/i,'Pink'],
+  [/JC\s*PENN(E)?Y/i,'JCP'],
+];
 function normalizeBuyer(raw){
   const s=String(raw||'').toUpperCase();
-  if(/WAL[\s-]?MART|WALMART/.test(s))return'Wal-Mart';
-  if(/AMERICAN\s+EAGLE|AERIE/.test(s))return'AEO';
-  if(/\bGAP\b|OLD\s+NAVY/.test(s))return'GAP / OLD NAVY';
-  if(/HOLLISTER|ABERCROMBIE/.test(s))return'A&F';
-  if(/EXPRESS/.test(s))return'Express';
-  if(/TARGET/.test(s))return'Target';
-  if(/LA\s+SENZA|VICTORIA.?S\s+SECRET/.test(s))return'Pink';
-  if(/JC\s*PENN(E)?Y/.test(s))return'JCP';
+  for(const[re,name] of BUYER_MAP){ if(re.test(s)) return name; }
   return String(raw||'').trim();
 }
 
@@ -656,34 +659,55 @@ function centerCropUpscale(sourceCanvas,cropFraction,minTargetDim){
   return c;
 }
 
-// Suy luận Category/Size/Year/Buyer/Code từ text OCR đọc được, dựa theo
-// thứ tự dòng mô tả ở đầu block này.
+// Suy luận Category/Size/Year/Buyer/Code từ text OCR đọc được.
+// Nhãn thực tế thường có dạng:
+//   Dòng 1: CATEGORY + SIZE (số lớn) + YEAR   (vd "GIRL REGULAR 8 2006")
+//   Dòng kế: tên nhãn hàng (vd "WAL-MART")
+//   Dòng dưới: mã nội bộ (bỏ qua) rồi đến mã tham chiếu cuối (vd "AVF76519")
 function parseSizeLabelText(rawText){
   const lines=String(rawText||'').split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
   if(!lines.length) return {category:'',size:'',year:'',buyer:'',code:''};
 
-  const firstLine=lines[0];
-  const yearMatch=firstLine.match(/\b(19|20)\d{2}\b/);
-  const year=yearMatch?yearMatch[0]:'';
-  let category=yearMatch
-    ?(firstLine.slice(0,yearMatch.index)+firstLine.slice(yearMatch.index+yearMatch[0].length))
-    :firstLine;
+  // Năm: quét từng dòng, ưu tiên dòng đầu tiên có chứa năm hợp lệ — đó
+  // chính là dòng tiêu đề chứa Category + Size.
+  let yearLineIdx=-1,year='';
+  for(let i=0;i<lines.length;i++){
+    const m=lines[i].match(/\b(19|20)\d{2}\b/);
+    if(m){year=m[0];yearLineIdx=i;break;}
+  }
+  const labelLine=yearLineIdx!==-1?lines[yearLineIdx]:lines[0];
+
+  // Bỏ năm ra khỏi dòng tiêu đề, phần còn lại là Category + Size.
+  let rest=year?labelLine.replace(year,' '):labelLine;
+  const sizeMatch=rest.match(/(?:^|\s)([0-9]{1,3}[A-Za-z]{0,2})(?:\s|$)/);
+  const size=sizeMatch?sizeMatch[1].toUpperCase():'';
+  let category=size?rest.replace(sizeMatch[0],' '):rest;
   category=category.replace(/[^A-Za-z\s]/g,' ').replace(/\s+/g,' ').trim();
 
-  const codeLine=lines.length>1?lines[lines.length-1]:'';
-  const code=codeLine.replace(/\s+/g,'').toUpperCase();
-
-  const middle=lines.length>2?lines.slice(1,lines.length-1):[];
-  let size='',buyer='';
-  if(middle.length){
-    let sizeIdx=middle.findIndex(l=>/^[0-9]{1,3}[A-Za-z]{0,2}$/.test(l.replace(/\s+/g,'')));
-    if(sizeIdx===-1) sizeIdx=0;
-    size=middle[sizeIdx].replace(/\s+/g,'').toUpperCase();
-    buyer=middle.filter((_,i)=>i!==sizeIdx).join(' ').replace(/\s+/g,' ').trim();
+  // Buyer: tìm dòng có chứa tên nhãn hàng quen thuộc, bỏ qua dòng tiêu đề.
+  let buyer='';
+  for(let i=0;i<lines.length;i++){
+    if(i===yearLineIdx)continue;
+    if(BUYER_MAP.some(([re])=>re.test(lines[i]))){buyer=lines[i];break;}
   }
+  if(!buyer&&yearLineIdx!==-1&&lines[yearLineIdx+1]&&!/[0-9]{3,}/.test(lines[yearLineIdx+1])){
+    buyer=lines[yearLineIdx+1];
+  }
+
+  // Code: quét từ dòng cuối lên, lấy dòng đầu tiên "giống mã tham chiếu"
+  // (chủ yếu chữ+số, không lẫn quá nhiều ký tự lạ do OCR đọc nhầm).
+  let code='';
+  for(let i=lines.length-1;i>=0;i--){
+    if(i===yearLineIdx)continue;
+    const cleaned=lines[i].replace(/\s+/g,'');
+    const alnum=cleaned.replace(/[^A-Za-z0-9]/g,'');
+    if(alnum.length>=5&&alnum.length/cleaned.length>0.7){code=alnum.toUpperCase();break;}
+  }
+  if(!code&&lines.length>1)code=lines[lines.length-1].replace(/\s+/g,'').toUpperCase();
+
   return {category,size,year,buyer,code};
 }
-function isValidSizeResult(r){ return !!(r&&r.category&&r.code); }
+function isValidSizeResult(r){ return !!(r&&r.category&&r.size&&r.year&&r.code); }
 function scoreSizeResult(r){
   if(!r) return -1;
   let s=0;
