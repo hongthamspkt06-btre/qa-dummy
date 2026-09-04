@@ -125,6 +125,14 @@ tr:hover td{background:#F7F9FB}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:100}
 .modal.show{display:flex}.modal-box{background:#fff;border-radius:10px;padding:20px;max-width:90vw;max-height:90vh;box-shadow:0 10px 40px rgba(0,0,0,.25)}
 .modal-box img{max-width:80vw;max-height:75vh;display:block;border-radius:6px}
+.confirm-modal-box{background:#fff;border-radius:10px;padding:22px 26px;width:340px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.25);text-align:left}
+.confirm-modal-box p{margin:0 0 18px;font-size:14px;color:var(--text)}
+.confirm-modal-actions{display:flex;justify-content:flex-end;gap:10px}
+.btn-modal-no{background:#EEF1F4;color:var(--text)}.btn-modal-no:hover{background:#E2E7EC}
+.btn-modal-yes{background:var(--warn);color:#fff}.btn-modal-yes:hover{background:#9c2e21}
+/* Table text: No./Buyer/Category/Size/Year/Code/Photo/Location -> black, not bold */
+.table-wrap td{color:#000;font-weight:400}
+.table-wrap .chip,.table-wrap .category-chip{color:#000;font-weight:400}
 footer{margin-top:16px;text-align:center;font-size:12px;color:#8592A3}
 .small-note{font-size:11px;color:#94A3B8;margin-top:5px}
 
@@ -300,6 +308,16 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
   </div>
 </div>
 
+<div class="modal" id="deleteModal">
+  <div class="confirm-modal-box">
+    <p>Are you sure to delete?</p>
+    <div class="confirm-modal-actions">
+      <button class="btn-plain btn-modal-no" id="deleteNo">No</button>
+      <button class="btn-modal-yes" id="deleteYes">Yes</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -316,8 +334,17 @@ const state = {
   sign:{approved:false,approvedAt:null,approvedBy:null,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''},
   signUI:{confirmingSign:false,confirmingUnlock:false,confirmingReject:false,showSignOffActions:false,pwInput:'',pwError:'',rejectComment:''},
   pendingImage:null,
-  editingLocationId:null, editingLocationValue:''
+  editingLocationId:null, editingLocationValue:'',
+  pendingDeleteId:null
 };
+let dataVersion=0;
+const exportCache={buffer:null,version:-1,building:false};
+const imageCache=new Map(); // imageFileId -> {base64, mimeType} — tránh tải lại ảnh đã có khi build Excel
+let activeUserOps=0; // số thao tác người dùng (xóa/thêm/sửa/ký) đang gọi server
+function trackOp(promise){
+  activeUserOps++;
+  return promise.finally(()=>{activeUserOps=Math.max(0,activeUserOps-1);});
+}
 
 const years = [];
 for(let y=new Date().getFullYear()-3;y<=new Date().getFullYear()+2;y++) years.push(y);
@@ -360,7 +387,9 @@ function applyServerData(data){
   state.entries=Array.isArray(data.entries)?data.entries:[];
   const oldSign=data.sign||{};
   state.sign={approved:!!oldSign.approved,approvedAt:oldSign.approvedAt||null,approvedBy:oldSign.approvedBy||null,rejected:!!oldSign.rejected,rejectedAt:oldSign.rejectedAt||null,rejectedBy:oldSign.rejectedBy||null,rejectComment:oldSign.rejectComment||''};
+  dataVersion++;
   renderFilters(); render();
+  scheduleExportPrefill();
 }
 function handleServerError(err){
   console.error(err);
@@ -409,7 +438,7 @@ function render(){
       <td><span class="chip category-chip">${esc(e.category)}</span></td>
       <td>${esc(e.size)}</td>
       <td>${esc(e.year)}</td>
-      <td><b>${esc(e.code)}</b></td>
+      <td>${esc(e.code)}</td>
       <td>${e.imageUrl?`<img class="photo-thumb" src="${e.imageUrl}" data-photo="${e.id}" alt="Photo" loading="lazy">`:`<div class="photo-empty">No photo</div>`}</td>
       <td>${state.editingLocationId===e.id?`
         <input type="text" id="locEditInput" class="loc-edit-input" value="${esc(state.editingLocationValue)}">
@@ -465,7 +494,7 @@ function saveEditLocation(id){
   state.editingLocationValue='';
   if(newVal===entry.location){render();return;}
   render();
-  gsRun('updateEntryLocation', id, newVal)
+  trackOp(gsRun('updateEntryLocation', id, newVal))
     .then(applyServerData)
     .catch(function(err){console.error(err);alert('Không thể lưu location trên server, vui lòng thử lại.');});
 }
@@ -533,13 +562,13 @@ function askSignConfirm(){state.signUI.confirmingSign=true;state.signUI.showSign
 function cancelSignConfirm(){resetSignUI();render()}
 function confirmSignPassword(){if(state.signUI.pwInput!==SIGN_PASSWORD){state.signUI.pwError='Incorrect password.';render();return}state.signUI.confirmingSign=false;state.signUI.pwInput='';state.signUI.pwError='';state.signUI.showSignOffActions=true;render()}
 function cancelSignOffActions(){resetSignUI();render()}
-function doSignApprove(){state.signUI.showSignOffActions=false;const signObj={approved:true,approvedAt:new Date().toISOString(),approvedBy:APPROVER_NAME,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};state.sign=signObj;render();gsRun('saveSignState',signObj).then(applyServerData).catch(handleServerError)}
+function doSignApprove(){state.signUI.showSignOffActions=false;const signObj={approved:true,approvedAt:new Date().toISOString(),approvedBy:APPROVER_NAME,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};state.sign=signObj;render();trackOp(gsRun('saveSignState',signObj)).then(applyServerData).catch(handleServerError)}
 function askRejectConfirm(){state.signUI.confirmingReject=true;state.signUI.pwError='';state.signUI.rejectComment='';render();setTimeout(()=>{const e=$('rejectCommentField');if(e)e.focus()},0)}
 function cancelRejectConfirm(){resetSignUI();render()}
-function doRejectApprove(){if(!state.signUI.rejectComment.trim()){state.signUI.pwError='Please enter a comment.';render();return}const signObj={approved:false,approvedAt:null,approvedBy:null,rejected:true,rejectedAt:new Date().toISOString(),rejectedBy:APPROVER_NAME,rejectComment:state.signUI.rejectComment.trim()};state.sign=signObj;resetSignUI();render();gsRun('saveSignState',signObj).then(applyServerData).catch(handleServerError)}
+function doRejectApprove(){if(!state.signUI.rejectComment.trim()){state.signUI.pwError='Please enter a comment.';render();return}const signObj={approved:false,approvedAt:null,approvedBy:null,rejected:true,rejectedAt:new Date().toISOString(),rejectedBy:APPROVER_NAME,rejectComment:state.signUI.rejectComment.trim()};state.sign=signObj;resetSignUI();render();trackOp(gsRun('saveSignState',signObj)).then(applyServerData).catch(handleServerError)}
 function askUnlockConfirm(){state.signUI.confirmingUnlock=true;state.signUI.pwInput='';state.signUI.pwError='';render();setTimeout(()=>{const e=$('pwFieldUnlock');if(e)e.focus()},0)}
 function cancelUnlockConfirm(){resetSignUI();render()}
-function doUnlockApprove(){if(state.signUI.pwInput!==SIGN_PASSWORD){state.signUI.pwError='Incorrect password.';render();return}const signObj={approved:false,approvedAt:null,approvedBy:null,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};state.sign=signObj;resetSignUI();render();gsRun('saveSignState',signObj).then(applyServerData).catch(handleServerError)}
+function doUnlockApprove(){if(state.signUI.pwInput!==SIGN_PASSWORD){state.signUI.pwError='Incorrect password.';render();return}const signObj={approved:false,approvedAt:null,approvedBy:null,rejected:false,rejectedAt:null,rejectedBy:null,rejectComment:''};state.sign=signObj;resetSignUI();render();trackOp(gsRun('saveSignState',signObj)).then(applyServerData).catch(handleServerError)}
 function bindApprovalRowEvents(){const sob=$('signOffBtn');if(sob)sob.onclick=askSignConfirm;const sy=$('signYes');if(sy)sy.onclick=confirmSignPassword;const sn=$('signNo');if(sn)sn.onclick=cancelSignConfirm;const pw=$('pwField');if(pw){pw.oninput=e=>state.signUI.pwInput=e.target.value;pw.onkeydown=e=>{if(e.key==='Enter')confirmSignPassword()}}const ap=$('approveBtn');if(ap)ap.onclick=doSignApprove;const ns=$('notSignBtn');if(ns)ns.onclick=askRejectConfirm;const ca=$('cancelActionBtn');if(ca)ca.onclick=cancelSignOffActions;const ry=$('rejectYes');if(ry)ry.onclick=doRejectApprove;const rc=$('rejectCancelBtn');if(rc)rc.onclick=cancelRejectConfirm;const rcf=$('rejectCommentField');if(rcf)rcf.oninput=e=>state.signUI.rejectComment=e.target.value;const ub=$('unlockBtn');if(ub)ub.onclick=askUnlockConfirm;const uy=$('unlockYes');if(uy)uy.onclick=doUnlockApprove;const un=$('unlockNo');if(un)un.onclick=cancelUnlockConfirm;const pwu=$('pwFieldUnlock');if(pwu){pwu.oninput=e=>state.signUI.pwInput=e.target.value;pwu.onkeydown=e=>{if(e.key==='Enter')doUnlockApprove()}}}
 function renderApproval(){const row=$('approvalRow');row.innerHTML=`<div class="approval-left">${buildApprovalLeftHtml()}</div><div>${buildApprovalRightHtml()}</div>`;bindApprovalRowEvents();}
 /* ===== AI Label Reading (image → Buyer/Category/Size/Year/Code) =====
@@ -930,7 +959,7 @@ function addEntry(){
   const entryData={buyer,category,size,year,code,location,imageDataUrl:state.pendingImage||null};
   const btn=$('btnAdd'); const btnLabel=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
-  gsRun('addEntry', entryData)
+  trackOp(gsRun('addEntry', entryData))
     .then(function(data){
       if(btn){btn.disabled=false;btn.textContent=btnLabel;}
       ['fBuyer','fCategory','fSize','fYear','fCode','fLocation'].forEach(id=>{$(id).value='';});
@@ -950,115 +979,204 @@ function addEntry(){
 function removeEntry(id){
   const locked=state.sign.approved||state.sign.rejected;
   if(locked){alert('Form đã khóa sau khi ký duyệt (Sign-Off). Vui lòng Unlock trước khi xóa.');return;}
-  if(!confirm('Are you sure to delete?'))return;
-  gsRun('deleteEntry', id)
+  state.pendingDeleteId=id;
+  $('deleteModal').classList.add('show');
+}
+function cancelDeleteEntry(){
+  state.pendingDeleteId=null;
+  $('deleteModal').classList.remove('show');
+}
+function confirmDeleteEntry(){
+  const id=state.pendingDeleteId;
+  $('deleteModal').classList.remove('show');
+  state.pendingDeleteId=null;
+  if(!id)return;
+  const idx=state.entries.findIndex(e=>e.id===id);
+  if(idx===-1)return;
+  // Xóa ngay trên giao diện để phản hồi tức thì, đồng bộ thật với server ở nền
+  // (không cần chờ round-trip mạng mới thấy dòng biến mất).
+  state.entries.splice(idx,1);
+  dataVersion++;
+  render();
+  trackOp(gsRun('deleteEntry', id))
     .then(applyServerData)
-    .catch(function(err){console.error(err);alert('Không thể xóa trên server, vui lòng thử lại.');});
+    .catch(function(err){
+      console.error(err);
+      alert('Không thể xóa trên server, vui lòng thử lại.');
+      load(); // đồng bộ lại đúng dữ liệu thật từ server nếu xóa thất bại
+    });
 }
 
 function showPhoto(src){$('modalImage').src=src;$('photoModal').classList.add('show')}
-function exportExcel(){
-  const btnEx=$('btnExport'); const btnExLabel=btnEx?btnEx.textContent:'';
-  if(btnEx){btnEx.disabled=true;btnEx.textContent='Đang xuất...';}
-  const script=document.createElement('script');
-  script.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
-  script.onload=async()=>{
-   try{
-    const wb=new ExcelJS.Workbook();
-    const ws=wb.addWorksheet('Dummy');
-    const thinBorder={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
-    const HEADER_FILL='FFB4C7E7';
-    const TOTAL_FILL='FFC6E0B4';
+function ensureExcelJS(){
+  return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+}
 
-    ws.columns=[
-      {width:10.43},{width:19.57},{width:20},{width:12},{width:10},{width:18},{width:36.43},{width:19.57}
-    ];
+// Dựng file Excel (đúng format template QA_Dummy_List.xlsx) trong bộ nhớ, trả về buffer.
+// Hàm này KHÔNG tải file xuống — chỉ build workbook để dùng lại cho cache hoặc export trực tiếp.
+async function buildExportWorkbookBuffer(){
+  await ensureExcelJS();
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Dummy');
+  const thinBorder={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
+  const HEADER_FILL='FFB4C7E7';
+  const TOTAL_FILL='FFC6E0B4';
 
-    ws.mergeCells('A1:H1');
-    const titleCell=ws.getCell('A1');
-    titleCell.value='QA DUMMY UPDATE';
-    titleCell.font={name:'Calibri',size:16,bold:true};
-    titleCell.alignment={horizontal:'center',vertical:'center',wrapText:true};
-    ws.getRow(1).height=20.25;
+  ws.columns=[
+    {width:10.43},{width:19.57},{width:20},{width:12},{width:10},{width:18},{width:36.43},{width:19.57}
+  ];
 
-    const now=new Date();
-    const pad=n=>String(n).padStart(2,'0');
-    const updatedCell=ws.getCell('A2');
-    updatedCell.value=`Updated: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    updatedCell.font={name:'Calibri',size:10,italic:true};
-    updatedCell.alignment={vertical:'center'};
-    ws.getRow(2).height=20.25;
+  ws.mergeCells('A1:H1');
+  const titleCell=ws.getCell('A1');
+  titleCell.value='QA DUMMY UPDATE';
+  titleCell.font={name:'Calibri',size:16,bold:true};
+  titleCell.alignment={horizontal:'center',vertical:'center',wrapText:true};
+  ws.getRow(1).height=20.25;
 
-    const headers=['No.','Buyer','Category','Size','Year','Code','Photo','Location'];
-    const headerRow=ws.getRow(3);
-    headers.forEach((h,i)=>{
-      const cell=headerRow.getCell(i+1);
-      cell.value=h;
-      cell.font={name:'Calibri',size:10,bold:true};
-      cell.alignment={horizontal:'center',vertical:'center',wrapText:true};
-      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEADER_FILL}};
-      cell.border=thinBorder;
-    });
-    headerRow.height=20.25;
-    ws.views=[{state:'frozen',ySplit:3,showGridLines:false}];
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const updatedCell=ws.getCell('A2');
+  updatedCell.value=`Updated: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  updatedCell.font={name:'Calibri',size:10,italic:true};
+  updatedCell.alignment={vertical:'center'};
+  ws.getRow(2).height=20.25;
 
-    for(let i=0;i<state.entries.length;i++){
-      const e=state.entries[i];
-      const r=4+i;
-      const row=ws.getRow(r);
-      row.getCell(1).value={formula:'ROW()-3'};
-      row.getCell(2).value=e.buyer||'';
-      row.getCell(3).value=e.category||'';
-      row.getCell(4).value=e.size||'';
-      row.getCell(5).value=e.year||'';
-      row.getCell(6).value=e.code||'';
-      row.getCell(7).value='';
-      row.getCell(8).value=e.location||'';
-      for(let c=1;c<=8;c++){
-        const cell=row.getCell(c);
-        cell.font={name:'Calibri',size:10};
-        cell.alignment={horizontal:(c===1||c===7)?'center':'left',vertical:'center',wrapText:true};
-        cell.border=thinBorder;
-      }
-      if(e.imageFileId){
-        try{
-          const img=await gsRun('getImageBase64', e.imageFileId);
-          const ext=(img.mimeType||'image/jpeg').split('/')[1]==='jpg'?'jpeg':(img.mimeType||'image/jpeg').split('/')[1];
-          const imgId=wb.addImage({base64:img.base64,extension:ext});
-          ws.addImage(imgId,{tl:{col:6,row:r-1},ext:{width:150,height:150}});
-          row.height=122.25;
-        }catch(err){console.error(err);row.height=20.25;}
-      }else{
-        row.height=20.25;
-      }
-    }
+  const headers=['No.','Buyer','Category','Size','Year','Code','Photo','Location'];
+  const headerRow=ws.getRow(3);
+  headers.forEach((h,i)=>{
+    const cell=headerRow.getCell(i+1);
+    cell.value=h;
+    cell.font={name:'Calibri',size:10,bold:true};
+    cell.alignment={horizontal:'center',vertical:'center',wrapText:true};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEADER_FILL}};
+    cell.border=thinBorder;
+  });
+  headerRow.height=20.25;
+  ws.views=[{state:'frozen',ySplit:3,showGridLines:false}];
 
-    const totalRowIdx=4+state.entries.length;
-    ws.mergeCells(`A${totalRowIdx}:G${totalRowIdx}`);
+  const entries=state.entries;
+
+  // Chỉ tải các ảnh CHƯA có trong cache (ảnh không đổi giữa các lần build thì khỏi tải lại),
+  // và tải song song (batch) thay vì tuần tự từng ảnh -> giảm mạnh thời gian build,
+  // đồng thời đỡ chiếm dụng lâu kết nối tới Apps Script (vốn dùng chung với các thao tác Add/Delete...).
+  const missingIds=[...new Set(entries.filter(e=>e.imageFileId && !imageCache.has(e.imageFileId)).map(e=>e.imageFileId))];
+  const BATCH_SIZE=4;
+  for(let i=0;i<missingIds.length;i+=BATCH_SIZE){
+    const batch=missingIds.slice(i,i+BATCH_SIZE);
+    await Promise.all(batch.map(async fid=>{
+      try{
+        const img=await gsRun('getImageBase64', fid);
+        imageCache.set(fid,img);
+      }catch(err){console.error('Không tải được ảnh', fid, err);}
+    }));
+  }
+
+  for(let i=0;i<entries.length;i++){
+    const e=entries[i];
+    const r=4+i;
+    const row=ws.getRow(r);
+    row.getCell(1).value={formula:'ROW()-3'};
+    row.getCell(2).value=e.buyer||'';
+    row.getCell(3).value=e.category||'';
+    row.getCell(4).value=e.size||'';
+    row.getCell(5).value=e.year||'';
+    row.getCell(6).value=e.code||'';
+    row.getCell(7).value='';
+    row.getCell(8).value=e.location||'';
     for(let c=1;c<=8;c++){
-      const cell=ws.getCell(totalRowIdx,c);
-      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:TOTAL_FILL}};
+      const cell=row.getCell(c);
+      cell.font={name:'Calibri',size:10};
+      cell.alignment={horizontal:(c===1||c===7)?'center':'left',vertical:'center',wrapText:true};
       cell.border=thinBorder;
-      cell.font={name:'Calibri',size:10,bold:true};
-      cell.alignment={horizontal:'center',vertical:'center'};
     }
-    ws.getCell(`A${totalRowIdx}`).value='Total';
-    ws.getCell(`H${totalRowIdx}`).value=state.entries.length?{formula:`COUNTA(A4:A${totalRowIdx-1})`,result:state.entries.length}:0;
-    ws.getRow(totalRowIdx).height=21.75;
+    const img=e.imageFileId?imageCache.get(e.imageFileId):null;
+    if(img){
+      try{
+        const ext=(img.mimeType||'image/jpeg').split('/')[1]==='jpg'?'jpeg':(img.mimeType||'image/jpeg').split('/')[1];
+        const imgId=wb.addImage({base64:img.base64,extension:ext});
+        ws.addImage(imgId,{tl:{col:6,row:r-1},ext:{width:150,height:150}});
+        row.height=122.25;
+      }catch(err){console.error(err);row.height=20.25;}
+    }else{
+      row.height=20.25;
+    }
+  }
 
-    const buf=await wb.xlsx.writeBuffer();
-    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='QA_Dummy_List.xlsx';a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-   }catch(err){
+  const totalRowIdx=4+entries.length;
+  ws.mergeCells(`A${totalRowIdx}:G${totalRowIdx}`);
+  for(let c=1;c<=8;c++){
+    const cell=ws.getCell(totalRowIdx,c);
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:TOTAL_FILL}};
+    cell.border=thinBorder;
+    cell.font={name:'Calibri',size:10,bold:true};
+    cell.alignment={horizontal:'center',vertical:'center'};
+  }
+  ws.getCell(`A${totalRowIdx}`).value='Total';
+  ws.getCell(`H${totalRowIdx}`).value=entries.length?{formula:`COUNTA(A4:A${totalRowIdx-1})`,result:entries.length}:0;
+  ws.getRow(totalRowIdx).height=21.75;
+
+  return await wb.xlsx.writeBuffer();
+}
+
+function downloadWorkbookBuffer(buf){
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='QA_Dummy_List.xlsx';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+// Điền template Excel ngầm mỗi khi dữ liệu thay đổi (thêm/xóa/sửa/ký duyệt),
+// để lúc bấm "Export Excel" chỉ cần tải file đã dựng sẵn thay vì build lại từ đầu.
+// Luôn nhường ưu tiên cho các thao tác của người dùng (Add/Delete/Edit/Sign) đang gọi
+// server, để những thao tác đó phản hồi nhanh thay vì phải chờ sau việc điền template.
+let _exportPrefillTimer=null;
+function scheduleExportPrefill(delay){
+  clearTimeout(_exportPrefillTimer);
+  _exportPrefillTimer=setTimeout(()=>{prefillExportCache();}, delay??500);
+}
+async function prefillExportCache(){
+  if(exportCache.building) return;
+  if(exportCache.version===dataVersion) return; // đã sẵn sàng
+  if(activeUserOps>0){ scheduleExportPrefill(300); return; } // có thao tác người dùng đang chạy -> đợi
+  exportCache.building=true;
+  const myVersion=dataVersion;
+  try{
+    const buf=await buildExportWorkbookBuffer();
+    if(myVersion===dataVersion){
+      exportCache.buffer=buf;
+      exportCache.version=myVersion;
+    }
+  }catch(err){
+    console.error('Điền template Excel ngầm thất bại (sẽ build lại khi bấm Export):', err);
+  }finally{
+    exportCache.building=false;
+    if(myVersion!==dataVersion) scheduleExportPrefill(); // dữ liệu đổi tiếp trong lúc build -> build lại
+  }
+}
+
+async function exportExcel(){
+  const btnEx=$('btnExport');
+  const btnExLabel=btnEx?(btnEx.dataset.label||btnEx.textContent):'';
+  if(btnEx && !btnEx.dataset.label) btnEx.dataset.label=btnExLabel;
+
+  // Template đã được điền ngầm sẵn (khớp dữ liệu hiện tại) -> tải ngay, không cần chờ.
+  if(exportCache.buffer && exportCache.version===dataVersion){
+    downloadWorkbookBuffer(exportCache.buffer);
+    return;
+  }
+
+  // Chưa có cache hợp lệ (lần đầu, hoặc dữ liệu vừa đổi) -> build ngay lúc này.
+  if(btnEx){btnEx.disabled=true;btnEx.textContent='Đang xuất...';}
+  try{
+    const myVersion=dataVersion;
+    const buf=await buildExportWorkbookBuffer();
+    downloadWorkbookBuffer(buf);
+    if(myVersion===dataVersion){exportCache.buffer=buf;exportCache.version=myVersion;}
+  }catch(err){
     console.error(err);
     alert('Xuất Excel thất bại, vui lòng thử lại.');
-   }finally{
-    if(btnEx){btnEx.disabled=false;btnEx.textContent=btnExLabel;}
-   }
-  };
-  script.onerror=()=>{if(btnEx){btnEx.disabled=false;btnEx.textContent=btnExLabel;}alert('Unable to load Excel export library. Please check internet connection.');};
-  document.head.appendChild(script);
+  }finally{
+    if(btnEx){btnEx.disabled=false;btnEx.textContent=btnEx.dataset.label||btnExLabel;}
+  }
 }
 
 load();
@@ -1080,7 +1198,7 @@ $('btnRefresh').onclick=()=>{
   btn.classList.remove('spinning');
   void btn.offsetWidth; // buộc reflow để animation luôn chạy lại từ đầu kể cả bấm liên tục
   btn.classList.add('spinning');
-  gsRun('getData')
+  trackOp(gsRun('getData'))
     .then(function(data){
       applyServerData(data);
       showToast('✓ Đã làm mới dữ liệu');
@@ -1100,6 +1218,9 @@ function showToast(msg){
 }
 $('closeModal').onclick=()=>$('photoModal').classList.remove('show');
 $('photoModal').onclick=e=>{if(e.target.id==='photoModal')e.currentTarget.classList.remove('show')};
+$('deleteNo').onclick=cancelDeleteEntry;
+$('deleteYes').onclick=confirmDeleteEntry;
+$('deleteModal').onclick=e=>{if(e.target.id==='deleteModal')cancelDeleteEntry();};
 document.querySelectorAll('.tab-btn').forEach(t=>t.onclick=()=>{
   state.activeSection=t.dataset.section;
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.toggle('active',x===t));
