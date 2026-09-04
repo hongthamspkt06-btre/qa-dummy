@@ -307,49 +307,6 @@ const SIG_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAABFCAYAAABjX
 const SIGN_PASSWORD = "kimjs2026";
 const APPROVER_NAME = "Kim Joo Shik";
 
-/* ============================================================
- * GAS BACKEND (standalone JSON API) — thay cho google.script.run
- * Trang này chạy độc lập trên GitHub/Cloudflare, KHÔNG nằm trong
- * sandbox Apps Script nên không có sẵn đối tượng `google.script`.
- * -> Dán URL Web App (.../exec) sau khi Deploy > New deployment vào đây.
- * ============================================================ */
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzZ7K_Jo6GqP5y9XOexfLlnJVeH79vqrGgdwGExId25Hf0Traqw7SWuTI1mREmUzO8VWg/exec"; // ví dụ: https://script.google.com/macros/s/AKfycb.../exec
-
-function gasCall_(fnName, args) {
-  return fetch(GAS_API_URL, {
-    method: "POST",
-    // text/plain để tránh CORS preflight (OPTIONS) — GAS Web App không xử lý OPTIONS
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ fn: fnName, args: args || [] })
-  })
-    .then(r => r.json())
-    .then(res => {
-      if (!res || !res.ok) throw new Error((res && res.error) || "Lỗi server không xác định");
-      return res.data;
-    });
-}
-
-// Shim tái tạo đúng API google.script.run.withSuccessHandler().withFailureHandler().fn(args)
-// để toàn bộ code phía dưới không cần sửa lại từng chỗ gọi.
-function makeScriptRunProxy_() {
-  let onOk = null, onErr = null;
-  const chain = {
-    withSuccessHandler(fn) { onOk = fn; return chain; },
-    withFailureHandler(fn) { onErr = fn; return chain; }
-  };
-  return new Proxy(chain, {
-    get(target, prop) {
-      if (prop in target) return target[prop];
-      return function (...args) {
-        gasCall_(prop, args)
-          .then(data => { if (onOk) onOk(data); })
-          .catch(err => { console.error(err); if (onErr) onErr(err); });
-      };
-    }
-  });
-}
-const google = { script: { get run() { return makeScriptRunProxy_(); } } };
-
 const state = {
   entries: [], filterBuyer:'ALL', filterCategory:'ALL', filterSize:'ALL',
   search:'', activeSection:'LIST',
@@ -577,7 +534,7 @@ function normalizeBuyer(raw){
 
 async function ocrLabel(dataUrl){
   // Gọi qua GAS backend (hàm ocrLabel trong Code.gs) thay vì gọi thẳng Anthropic API
-  // từ trình duyệt — tránh lộ API key khi host tĩnh trên Cloudflare.
+  // từ trình duyệt — giữ kín API key ở server.
   return gsRun('ocrLabel', dataUrl);
 }
 
