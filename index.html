@@ -591,7 +591,8 @@ async function processImage(file){
       setDzStatus('✓ Đã đọc xong — vui lòng kiểm tra lại thông tin trước khi lưu.');
     }catch(err){
       console.error(err);
-      setDzStatus('⚠ Không tự đọc được nhãn, vui lòng nhập tay các trường bên dưới.');
+      const detail=(err&&err.message)?err.message:String(err);
+      setDzStatus('⚠ Không tự đọc được nhãn (' + esc(detail) + ') — vui lòng nhập tay các trường bên dưới.');
     }
   };
   reader.onerror=()=>alert('Không thể đọc file ảnh, vui lòng thử lại.');
