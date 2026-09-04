@@ -56,8 +56,8 @@ tr:hover td{background:#F7F9FB}
 .empty-row td{text-align:center;color:var(--muted);padding:30px;font-style:italic;border-bottom:none}
 .photo-thumb{width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--border);background:#F7F9FB;cursor:pointer}
 .photo-empty{width:54px;height:54px;border:1px dashed var(--border);border-radius:6px;background:#F7F9FB;display:flex;align-items:center;justify-content:center;color:#A0A8B3;font-size:10px}
-.chip{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:#EAF2FA;color:var(--blue-accent)}
-.category-chip{background:#EEF1F4;color:var(--navy)}
+.chip{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:400;background:#EAF2FA;color:#000}
+.category-chip{background:#EEF1F4;color:#000}
 .top-row{display:flex;gap:12px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap}
 .top-row .field{flex:1;min-width:130px}.top-row label{margin-top:0}
 .summary-section{display:none}.summary-pair{display:flex;gap:18px;flex-wrap:wrap}
@@ -130,9 +130,11 @@ tr:hover td{background:#F7F9FB}
 .confirm-modal-actions{display:flex;justify-content:flex-end;gap:10px}
 .btn-modal-no{background:#EEF1F4;color:var(--text)}.btn-modal-no:hover{background:#E2E7EC}
 .btn-modal-yes{background:var(--warn);color:#fff}.btn-modal-yes:hover{background:#9c2e21}
-/* Table text: No./Buyer/Category/Size/Year/Code/Photo/Location -> black, not bold */
+/* Table text: No./Buyer/Category/Size/Year/Code/Photo/Location -> black, not bold (Code stays bold) */
 .table-wrap td{color:#000;font-weight:400}
-.table-wrap .chip,.table-wrap .category-chip{color:#000;font-weight:400}
+.table-wrap .chip{color:#000;font-weight:400}
+.table-wrap .category-chip{color:#000;font-weight:700}
+.table-wrap .code-cell{font-weight:400}
 footer{margin-top:16px;text-align:center;font-size:12px;color:#8592A3}
 .small-note{font-size:11px;color:#94A3B8;margin-top:5px}
 
@@ -353,6 +355,9 @@ function $(id){return document.getElementById(id)}
 function esc(v){
   return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+function titleCase(v){
+  return String(v??'').toLowerCase().replace(/(^|\s|-)([a-zà-ỹ])/gi,(m,sep,ch)=>sep+ch.toUpperCase());
+}
 const _scriptCache={};
 function loadScriptOnce(src){
   if(!_scriptCache[src]){
@@ -402,9 +407,9 @@ function uniqueSorted(field){
   return [...new Set(state.entries.map(e=>e[field]).filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 }
 function renderFilters(){
-  const make=(id,vals,current)=>$(id).innerHTML='<option value="ALL">All</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const make=(id,vals,current,labelFn)=>$(id).innerHTML='<option value="ALL">All</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(labelFn?labelFn(v):v)}</option>`).join('');
   make('filterBuyer',uniqueSorted('buyer'),state.filterBuyer);
-  make('filterCategory',uniqueSorted('category'),state.filterCategory);
+  make('filterCategory',uniqueSorted('category'),state.filterCategory,titleCase);
   make('filterSize',uniqueSorted('size'),state.filterSize);
   $('filterBuyer').value=state.filterBuyer;
   $('filterCategory').value=state.filterCategory;
@@ -435,10 +440,10 @@ function render(){
     <tr>
       <td>${i+1}</td>
       <td><span class="chip">${esc(e.buyer)}</span></td>
-      <td><span class="chip category-chip">${esc(e.category)}</span></td>
+      <td><span class="chip category-chip">${esc(titleCase(e.category))}</span></td>
       <td>${esc(e.size)}</td>
       <td>${esc(e.year)}</td>
-      <td>${esc(e.code)}</td>
+      <td class="code-cell">${esc(e.code)}</td>
       <td>${e.imageUrl?`<img class="photo-thumb" src="${e.imageUrl}" data-photo="${e.id}" alt="Photo" loading="lazy">`:`<div class="photo-empty">No photo</div>`}</td>
       <td>${state.editingLocationId===e.id?`
         <input type="text" id="locEditInput" class="loc-edit-input" value="${esc(state.editingLocationValue)}">
@@ -958,7 +963,7 @@ function addEntry(){
   if(!buyer||!category||!size||!year||!code){alert('Vui lòng nhập đủ Buyer, Category, Size, Year, Code trước khi Add.');return;}
   const entryData={buyer,category,size,year,code,location,imageDataUrl:state.pendingImage||null};
   const btn=$('btnAdd'); const btnLabel=btn?btn.textContent:'';
-  if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
   trackOp(gsRun('addEntry', entryData))
     .then(function(data){
       if(btn){btn.disabled=false;btn.textContent=btnLabel;}
