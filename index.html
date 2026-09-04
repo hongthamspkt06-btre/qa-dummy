@@ -694,14 +694,23 @@ function parseSizeLabelText(rawText){
     buyer=lines[yearLineIdx+1];
   }
 
-  // Code: quét từ dòng cuối lên, lấy dòng đầu tiên "giống mã tham chiếu"
-  // (chủ yếu chữ+số, không lẫn quá nhiều ký tự lạ do OCR đọc nhầm).
+  // Code: quét từ dòng cuối lên, ưu tiên dòng khớp mẫu "vài chữ + nhiều số"
+  // (vd "AVF76519") — mẫu chuẩn của mã tham chiếu trên nhãn; nếu không có
+  // dòng nào khớp mẫu chuẩn thì mới dùng cách đoán lỏng hơn (chữ+số, ít
+  // ký tự lạ) để tránh nhặt nhầm mã nội bộ hoặc nhiễu OCR.
   let code='';
   for(let i=lines.length-1;i>=0;i--){
     if(i===yearLineIdx)continue;
-    const cleaned=lines[i].replace(/\s+/g,'');
-    const alnum=cleaned.replace(/[^A-Za-z0-9]/g,'');
-    if(alnum.length>=5&&alnum.length/cleaned.length>0.7){code=alnum.toUpperCase();break;}
+    const alnum=lines[i].replace(/\s+/g,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+    if(/^[A-Z]{1,4}[0-9]{4,8}$/.test(alnum)){code=alnum;break;}
+  }
+  if(!code){
+    for(let i=lines.length-1;i>=0;i--){
+      if(i===yearLineIdx)continue;
+      const cleaned=lines[i].replace(/\s+/g,'');
+      const alnum=cleaned.replace(/[^A-Za-z0-9]/g,'');
+      if(alnum.length>=5&&alnum.length/cleaned.length>0.7){code=alnum.toUpperCase();break;}
+    }
   }
   if(!code&&lines.length>1)code=lines[lines.length-1].replace(/\s+/g,'').toUpperCase();
 
@@ -718,6 +727,59 @@ async function ocrRecognizeText(worker,canvas,psm){
   if(psm) await worker.setParameters({tessedit_pageseg_mode:psm});
   const {data}=await worker.recognize(canvas);
   return (data&&data.text)?data.text:'';
+}
+// Đọc riêng 1 vùng ảnh chỉ chứa chữ số (dùng whitelist để Tesseract không
+// đoán nhầm số thành chữ cái tương tự, vd "0"→"O", "8"→"B").
+async function ocrDigitsOnly(worker,canvas){
+  await worker.setParameters({tessedit_pageseg_mode:'7',tessedit_char_whitelist:'0123456789'});
+  const {data}=await worker.recognize(canvas);
+  const digits=(data&&data.text)?data.text.replace(/\D/g,''):'';
+  await worker.setParameters({tessedit_char_whitelist:''});
+  return digits;
+}
+function cropCanvas(source,x,y,w,h,pad){
+  pad=pad||0;
+  const sx=Math.max(0,Math.round(x-pad)),sy=Math.max(0,Math.round(y-pad));
+  const ex=Math.min(source.width,Math.round(x+w+pad)),ey=Math.min(source.height,Math.round(y+h+pad));
+  const cw=Math.max(1,ex-sx),ch=Math.max(1,ey-sy);
+  const c=document.createElement('canvas');c.width=cw;c.height=ch;
+  c.getContext('2d').drawImage(source,sx,sy,cw,ch,0,0,cw,ch);
+  return c;
+}
+function upscaleCanvas(source,minDim){
+  const shortSide=Math.min(source.width,source.height);
+  if(shortSide>=minDim) return source;
+  const scale=minDim/Math.max(1,shortSide);
+  const c=document.createElement('canvas');
+  c.width=Math.round(source.width*scale);c.height=Math.round(source.height*scale);
+  const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(source,0,0,c.width,c.height);
+  return c;
+}
+// Tìm vùng chữ số màu cam đậm (số size nổi bật trên nhãn, vd "8","9","40")
+// trong nửa trên của ảnh — tách riêng vùng này ra để đọc số chính xác hơn
+// nhiều so với đọc chung cả dòng lẫn chữ nhỏ lẫn số lớn.
+function findOrangeBBox(canvas){
+  const w=canvas.width,h=canvas.height;
+  const searchH=Math.round(h*0.55);
+  if(w<1||searchH<1) return null;
+  const ctx=canvas.getContext('2d');
+  const d=ctx.getImageData(0,0,w,searchH).data;
+  let minX=w,minY=searchH,maxX=0,maxY=0,count=0;
+  for(let y=0;y<searchH;y++){
+    for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const r=d[i],g=d[i+1],b=d[i+2];
+      if(r>150&&b<120&&(r-b)>70&&(r-g)>25&&g<190){
+        count++;
+        if(x<minX)minX=x;if(x>maxX)maxX=x;
+        if(y<minY)minY=y;if(y>maxY)maxY=y;
+      }
+    }
+  }
+  const minPixels=Math.max(20,Math.round(w*searchH*0.002));
+  if(count<minPixels) return null;
+  return {x:minX,y:minY,w:(maxX-minX+1),h:(maxY-minY+1)};
 }
 function dataUrlToCanvas(dataUrl){
   return new Promise((resolve,reject)=>{
@@ -740,34 +802,64 @@ async function ocrExtractSizeLabel(canvas){
   }
   setDzStatus('⏳ Đang đọc nhãn...');
   const worker=await getOcrWorker();
+
+  // Bước 1: cô lập số cỡ màu cam trên dòng tiêu đề (nếu tìm thấy) và đọc
+  // riêng phần chữ bên trái/phải số đó — tách bạch giúp đọc chính xác hơn
+  // là đọc chung cả dòng có cỡ chữ to nhỏ lẫn lộn.
+  let colorSize='',colorCategory='',colorYear='';
+  try{
+    const bbox=findOrangeBBox(canvas);
+    if(bbox){
+      const digitCrop=upscaleCanvas(cropCanvas(canvas,bbox.x,bbox.y,bbox.w,bbox.h,Math.round(bbox.h*0.25)),160);
+      colorSize=await ocrDigitsOnly(worker,digitCrop);
+
+      const bandTop=Math.max(0,bbox.y-Math.round(bbox.h*0.35));
+      const bandBottom=Math.min(canvas.height,bbox.y+bbox.h+Math.round(bbox.h*0.35));
+      const bandH=bandBottom-bandTop;
+      if(bbox.x>10){
+        const leftCrop=upscaleCanvas(cropCanvas(canvas,0,bandTop,bbox.x,bandH,4),240);
+        const leftText=await ocrRecognizeText(worker,preprocessForOcr(leftCrop,{binarize:false}),'7');
+        colorCategory=leftText.replace(/[^A-Za-z\s]/g,' ').replace(/\s+/g,' ').trim();
+      }
+      if(bbox.x+bbox.w<canvas.width-10){
+        const rightCrop=upscaleCanvas(cropCanvas(canvas,bbox.x+bbox.w,bandTop,canvas.width-(bbox.x+bbox.w),bandH,4),240);
+        const rightText=await ocrRecognizeText(worker,preprocessForOcr(rightCrop,{binarize:false}),'7');
+        const ym=rightText.match(/\b(19|20)\d{2}\b/);
+        colorYear=ym?ym[0]:'';
+      }
+    }
+  }catch(e){ console.error('[QA OCR] Đọc vùng số màu cam thất bại:',e); }
+
+  // Bước 2: đọc toàn bộ nhãn (nhiều dòng) để lấy Buyer/Code, và làm
+  // phương án dự phòng cho Category/Size/Year nếu bước 1 không tách được.
   let best=null;
   function tryUpdate(result){
     if(isValidSizeResult(result)) return result;
     if(scoreSizeResult(result)>scoreSizeResult(best)) best=result;
     return null;
   }
-  const otsuCanvas=preprocessForOcr(canvas,{binarize:true});
-  let text=await ocrRecognizeText(worker,otsuCanvas,'6');
-  let hit=tryUpdate(parseSizeLabelText(text));
-  if(hit) return hit;
-
-  const cropOtsu=preprocessForOcr(centerCropUpscale(canvas,0.7,1200),{binarize:true});
-  text=await ocrRecognizeText(worker,cropOtsu,'6');
-  hit=tryUpdate(parseSizeLabelText(text));
-  if(hit) return hit;
-
-  const grayCanvas=preprocessForOcr(canvas,{binarize:false});
-  text=await ocrRecognizeText(worker,grayCanvas,'6');
-  hit=tryUpdate(parseSizeLabelText(text));
-  if(hit) return hit;
-
-  const cropGray=preprocessForOcr(centerCropUpscale(canvas,0.7,1200),{binarize:false});
-  text=await ocrRecognizeText(worker,cropGray,'6');
-  hit=tryUpdate(parseSizeLabelText(text));
+  const attempts=[
+    ()=>preprocessForOcr(canvas,{binarize:true}),
+    ()=>preprocessForOcr(centerCropUpscale(canvas,0.7,1200),{binarize:true}),
+    ()=>preprocessForOcr(canvas,{binarize:false}),
+    ()=>preprocessForOcr(centerCropUpscale(canvas,0.7,1200),{binarize:false}),
+  ];
+  let hit=null;
+  for(const buildCanvas of attempts){
+    const text=await ocrRecognizeText(worker,buildCanvas(),'6');
+    console.log('[QA OCR] raw text:',JSON.stringify(text));
+    hit=tryUpdate(parseSizeLabelText(text));
+    if(hit) break;
+  }
   await worker.setParameters({tessedit_pageseg_mode:'6'});
-  if(hit) return hit;
 
-  return best||{category:'',size:'',year:'',buyer:'',code:''};
+  const result=hit||best||{category:'',size:'',year:'',buyer:'',code:''};
+  // Ưu tiên Category/Size/Year đọc riêng từ vùng số màu cam vì đáng tin
+  // cậy hơn cách đoán theo dòng ở bước 2.
+  if(colorSize) result.size=colorSize;
+  if(colorYear) result.year=colorYear;
+  if(colorCategory) result.category=colorCategory;
+  return result;
 }
 async function ocrLabel(dataUrl){
   const canvas=await dataUrlToCanvas(dataUrl);
@@ -850,7 +942,8 @@ function addEntry(){
     .catch(function(err){
       if(btn){btn.disabled=false;btn.textContent=btnLabel;}
       console.error(err);
-      alert('Không thể lưu dữ liệu lên server, vui lòng thử lại.');
+      const detail=(err&&err.message)?err.message:String(err);
+      alert('Không thể lưu dữ liệu lên server, vui lòng thử lại.\n\nChi tiết lỗi: ' + detail);
     });
 }
 
