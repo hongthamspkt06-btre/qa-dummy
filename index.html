@@ -49,9 +49,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD3EC;border-color:v
 .dz-btn{background:#fff;color:var(--blue-accent);border:1px solid var(--blue-accent);padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600}
 .dz-btn:hover{background:#EAF2FA}
 .table-wrap{overflow:auto;max-height:570px;position:relative}
-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
-th{background:#DCEAF7;color:var(--navy);text-align:left;padding:9px 10px;font-weight:700;border-bottom:2px solid #B9CFE8;position:sticky;top:0;z-index:2}
-td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px}
+th{background:#DCEAF7;color:var(--navy);text-align:center;padding:9px 10px;font-weight:700;border-bottom:2px solid #B9CFE8;position:sticky;top:0;z-index:2}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden}
+td:nth-child(5),td:nth-child(6){text-align:center}
 tr:hover td{background:#F7F9FB}
 .empty-row td{text-align:center;color:var(--muted);padding:30px;font-style:italic;border-bottom:none}
 .photo-thumb{width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--border);background:#F7F9FB;cursor:pointer}
@@ -79,7 +80,7 @@ tr:hover td{background:#F7F9FB}
 .grid .card .dz-actions{margin-top:7.45px;margin-bottom:1.86px}
 .grid .card .table-wrap{max-height:531px}
 /* Tiêu đề "Add New Dummy" / "Sign Status": không viết hoa toàn bộ, màu xám đậm */
-.card-title-plain{text-transform:none;color:#374151;font-weight:700;font-size:13px}
+.card h2.card-title-plain{text-transform:none;color:#374151;font-weight:700;font-size:13px}
 .chart-legend-row{display:flex;align-items:center;gap:6px;font-size:11px;margin:3px 0}
 .chart-legend-dot{width:10px;height:10px;border-radius:2px;flex:0 0 auto}
 .chart-bar-row{margin-bottom:8px}
@@ -283,12 +284,12 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
       <table>
         <thead><tr>
           <th style="width:42px">No.</th>
-          <th style="width:82px">Photo</th>
-          <th style="width:110px">Buyer</th>
-          <th style="width:130px">Category</th>
-          <th style="width:34px">Size</th>
-          <th style="width:54px">Year</th>
-          <th style="width:108px">Code</th>
+          <th style="width:85px">Photo</th>
+          <th style="width:85px">Buyer</th>
+          <th style="width:85px">Category</th>
+          <th style="width:85px">Size</th>
+          <th style="width:85px">Year</th>
+          <th style="width:85px">Code</th>
           <th>Location</th>
           <th style="width:55px"></th>
         </tr></thead>
