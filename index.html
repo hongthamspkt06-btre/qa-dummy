@@ -62,11 +62,35 @@ tr:hover td{background:#F7F9FB}
 .top-row .field{flex:1;min-width:130px}.top-row label{margin-top:0}
 .summary-section{display:none}.summary-pair{display:flex;gap:18px;flex-wrap:wrap}
 .summary-card{flex:1 1 300px}.summary-number{font-size:34px;font-weight:700;color:var(--navy)}
+.summary-card-tall{min-height:264px}
+.summary-card-short{min-height:240px;padding-top:7px;padding-bottom:7px}
+.summary-card-short h2{margin-bottom:5px}
+.summary-card h2{text-transform:none;color:#374151;font-weight:700;font-size:13px}
+.total-pie-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.total-pie-row .summary-number{flex:0 0 auto}
+.total-pie-row #sumBuyerPie{flex:1 1 auto;min-width:0}
+/* Giảm chiều cao 5%: khối Add New Dummy + khối trắng bên phải trong .grid */
+.grid .card{padding-top:15.83px;padding-bottom:15.83px}
+.grid .card label{margin-top:11.17px;margin-bottom:4.66px}
+.grid .card input[type=text],.grid .card input[type=number],.grid .card select,.grid .card textarea{padding-top:8.38px;padding-bottom:8.38px}
+.grid .card .dropzone{padding-top:14.9px;padding-bottom:14.9px}
+.grid .card #btnAdd{margin-top:14.9px}
+.grid .card .top-row{margin-bottom:13.03px}
+.grid .card .dz-actions{margin-top:7.45px;margin-bottom:1.86px}
+.grid .card .table-wrap{max-height:531px}
+/* Tiêu đề "Add New Dummy" / "Sign Status": không viết hoa toàn bộ, màu xám đậm */
+.card-title-plain{text-transform:none;color:#374151;font-weight:700;font-size:13px}
 .chart-legend-row{display:flex;align-items:center;gap:6px;font-size:11px;margin:3px 0}
 .chart-legend-dot{width:10px;height:10px;border-radius:2px;flex:0 0 auto}
 .chart-bar-row{margin-bottom:8px}
 .chart-bar-track{background:#EEF1F4;border-radius:4px;height:10px;overflow:hidden}
 .chart-bar-fill{height:100%;border-radius:4px}
+.col-chart{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:14px}
+.col-bar-item{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.col-bar-value{font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px}
+.col-bar-track{width:100%;max-width:36px;flex:1 1 auto;display:flex;align-items:flex-end;background:#EEF1F4;border-radius:4px 4px 0 0;overflow:hidden}
+.col-bar-fill{width:100%;border-radius:4px 4px 0 0;transition:height .2s}
+.col-bar-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .loc-cell{display:flex;align-items:center;gap:6px}
 .loc-edit-btn{background:#EEF1F4;color:var(--navy);border:none;border-radius:5px;width:20px;height:20px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex:0 0 auto}
 .loc-edit-btn:hover{background:#E2E7EC}
@@ -171,6 +195,8 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
 #btnRefresh .refresh-icon{display:inline-block}
 #btnRefresh.spinning .refresh-icon{animation:qa-refresh-spin .5s linear}
 @keyframes qa-refresh-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.synced-badge{font-size:12px;font-weight:700;color:var(--good);opacity:0;transition:opacity .25s;display:inline-flex;align-items:center;gap:4px}
+.synced-badge.show{opacity:1}
 
 </style>
 </head>
@@ -189,12 +215,13 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
 <div class="tab-bar">
   <div class="tab-btn active" data-section="LIST">QA Dummy List <span class="count" id="totalCount">0</span></div>
   <div class="tab-btn" data-section="SUMMARY">Summary</div>
-  <button class="btn-export" id="btnRefresh" style="margin-left:auto"><span class="refresh-icon">⟳</span> Refresh</button>
+  <span class="synced-badge" id="syncedBadge" style="margin-left:auto">✓ Synced</span>
+  <button class="btn-export" id="btnRefresh"><span class="refresh-icon">⟳</span> Refresh</button>
 </div>
 
 <div class="grid" id="sectionGrid">
   <div class="card">
-    <h2>Add New Dummy</h2>
+    <h2 class="card-title-plain">Add New Dummy</h2>
     <div class="lock-notice" id="lockNotice">This form is locked after sign-off.</div>
 
     <div class="dropzone" id="dropzone">
@@ -259,9 +286,9 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
           <th style="width:82px">Photo</th>
           <th style="width:110px">Buyer</th>
           <th style="width:130px">Category</th>
-          <th style="width:75px">Size</th>
-          <th style="width:65px">Year</th>
-          <th style="width:125px">Code</th>
+          <th style="width:34px">Size</th>
+          <th style="width:54px">Year</th>
+          <th style="width:108px">Code</th>
           <th>Location</th>
           <th style="width:55px"></th>
         </tr></thead>
@@ -272,30 +299,32 @@ input:disabled,select:disabled,textarea:disabled{background:#F2F4F6;color:var(--
 </div>
 
 <div class="card" id="signPanel" style="margin-top:18px">
-  <h2>Sign Status</h2>
+  <h2 class="card-title-plain">Sign Status</h2>
   <div class="approval-row" id="approvalRow"></div>
 </div>
 
 <div class="summary-section" id="sectionSummary">
   <div class="summary-pair">
-    <div class="summary-card">
+    <div class="summary-card summary-card-short">
       <h2>Total Dummy</h2>
-      <div class="summary-number" id="sumTotal">0</div>
-      <div class="small-note">Current master list</div>
+      <div class="total-pie-row">
+        <div class="summary-number" id="sumTotal">0</div>
+        <div id="sumBuyerPie"></div>
+      </div>
     </div>
-    <div class="summary-card">
-      <h2>Buyer Share</h2>
-      <div id="sumBuyerPie"></div>
-    </div>
-  </div>
-  <div class="summary-pair" style="margin-top:18px">
-    <div class="summary-card">
+    <div class="summary-card summary-card-short">
       <h2>By Buyer</h2>
       <div class="stat-list" id="sumBuyer"></div>
     </div>
-    <div class="summary-card">
+  </div>
+  <div class="summary-pair" style="margin-top:18px">
+    <div class="summary-card summary-card-tall">
       <h2>By Category</h2>
       <div class="stat-list" id="sumCategory"></div>
+    </div>
+    <div class="summary-card summary-card-tall">
+      <h2>By Size</h2>
+      <div class="stat-list" id="sumSize"></div>
     </div>
   </div>
 </div>
@@ -514,24 +543,33 @@ function drawPieChart(containerId, dataArr){
   if(!el)return;
   const total=dataArr.reduce((s,d)=>s+d.value,0);
   if(!total){el.innerHTML='<div class="small-note" style="padding:20px 0;text-align:center">No data</div>';return;}
-  const cx=90,cy=90,r=80;
-  let angle=-Math.PI/2, paths='';
+  const cx=130,cy=100,r=62,elbowR=r+14,legLen=16;
+  let angle=-Math.PI/2, paths='', leaders='';
   dataArr.forEach((d,i)=>{
     const sweep=(d.value/total)*Math.PI*2;
     const end=angle+sweep;
     const color=CHART_COLORS[i%CHART_COLORS.length];
+    const pct=d.value/total*100;
+    const mid=dataArr.length===1?-Math.PI/2:angle+sweep/2;
     if(dataArr.length===1){
       paths+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"><title>${esc(d.label)}: ${d.value} (100%)</title></circle>`;
     }else{
       const x1=(cx+r*Math.cos(angle)).toFixed(2), y1=(cy+r*Math.sin(angle)).toFixed(2);
       const x2=(cx+r*Math.cos(end)).toFixed(2), y2=(cy+r*Math.sin(end)).toFixed(2);
       const largeArc=sweep>Math.PI?1:0;
-      paths+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${color}" stroke="#fff" stroke-width="1"><title>${esc(d.label)}: ${d.value} (${(d.value/total*100).toFixed(1)}%)</title></path>`;
+      paths+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${color}" stroke="#fff" stroke-width="1"><title>${esc(d.label)}: ${d.value} (${pct.toFixed(2)}%)</title></path>`;
     }
+    // Data label chĩa ra ngoài bằng đường dẫn gấp khúc (leader line), vòng tròn giữ nguyên tròn đều
+    const ex=cx+r*Math.cos(mid), ey=cy+r*Math.sin(mid);
+    const elx=cx+elbowR*Math.cos(mid), ely=cy+elbowR*Math.sin(mid);
+    const side=Math.cos(mid)>=0?1:-1;
+    const lx=elx+side*legLen, ly=ely;
+    leaders+=`<polyline points="${ex.toFixed(2)},${ey.toFixed(2)} ${elx.toFixed(2)},${ely.toFixed(2)} ${lx.toFixed(2)},${ly.toFixed(2)}" fill="none" stroke="${color}" stroke-width="1"/>`;
+    const textX=lx+side*3;
+    leaders+=`<text x="${textX.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="${side>0?'start':'end'}" dominant-baseline="middle" font-size="9" font-weight="400" fill="${color}">${esc(d.label)} ${pct.toFixed(2)}%</text>`;
     angle=end;
   });
-  const legend=dataArr.map((d,i)=>`<div class="chart-legend-row"><span class="chart-legend-dot" style="background:${CHART_COLORS[i%CHART_COLORS.length]}"></span><span style="flex:1">${esc(d.label)}</span><b>${(d.value/total*100).toFixed(1)}%</b></div>`).join('');
-  el.innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><svg viewBox="0 0 180 180" width="150" height="150" style="flex:0 0 auto">${paths}</svg><div style="flex:1;min-width:140px">${legend}</div></div>`;
+  el.innerHTML=`<div style="display:flex;justify-content:flex-end;padding-right:42px"><svg viewBox="0 8 260 189" width="296" height="215" style="flex:0 0 auto;overflow:visible">${paths}${leaders}</svg></div>`;
 }
 
 function drawBarChart(containerId, dataArr){
@@ -549,18 +587,42 @@ function drawBarChart(containerId, dataArr){
   }).join('');
 }
 
+function drawColumnChart(containerId, dataArr){
+  const el=$(containerId);
+  if(!el)return;
+  if(!dataArr.length){el.innerHTML='<div class="small-note" style="padding:20px 0;text-align:center">No data</div>';return;}
+  const max=Math.max(...dataArr.map(d=>d.value),1);
+  const cols=dataArr.map((d,i)=>{
+    const pct=(d.value/max*100).toFixed(1);
+    const color=CHART_COLORS[i%CHART_COLORS.length];
+    return `<div class="col-bar-item">
+      <div class="col-bar-value">${d.value}</div>
+      <div class="col-bar-track"><div class="col-bar-fill" style="height:${pct}%;background:${color}"></div></div>
+      <div class="col-bar-label" title="${esc(d.label)}">${esc(d.label)}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="col-chart">${cols}</div>`;
+}
+
 function renderSummary(){
   $('sumTotal').textContent=state.entries.length;
-  const buyerCounts={}, categoryCounts={};
+  const buyerCounts={}, categoryCounts={}, sizeCounts={};
   state.entries.forEach(e=>{
     const b=e.buyer||'(Unspecified)'; buyerCounts[b]=(buyerCounts[b]||0)+1;
     const c=e.category||'(Unspecified)'; categoryCounts[c]=(categoryCounts[c]||0)+1;
+    const s=e.size||'(Unspecified)'; sizeCounts[s]=(sizeCounts[s]||0)+1;
   });
   const buyerArr=Object.entries(buyerCounts).map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value);
-  const categoryArr=Object.entries(categoryCounts).map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value);
+  const categoryArr=Object.entries(categoryCounts).map(([label,value])=>({label,value})).sort((a,b)=>{
+    if(a.label==='(Unspecified)') return 1;
+    if(b.label==='(Unspecified)') return -1;
+    return b.value-a.value;
+  });
+  const sizeArr=Object.entries(sizeCounts).map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value);
   drawPieChart('sumBuyerPie', buyerArr);
-  drawBarChart('sumBuyer', buyerArr);
+  drawColumnChart('sumBuyer', buyerArr);
   drawBarChart('sumCategory', categoryArr);
+  drawBarChart('sumSize', sizeArr);
 }
 function buildApprovalLeftHtml(){const s=state.sign||{};if(s.approved)return `<span class="status-badge status-approved">&#10003; SIGNED OFF</span><div class="sig-stamp"><img src="${SIG_IMG}" alt="Signature"><div class="sig-meta"><b>${esc(s.approvedBy||APPROVER_NAME)}</b><br>${fmtSignDateTime(s.approvedAt)}</div></div>`;if(s.rejected)return `<span class="status-badge status-rejected">&#10007; NOT SIGNED</span>${s.rejectComment?`<span class="sig-meta">&ldquo;${esc(s.rejectComment)}&rdquo;</span>`:''}`;return `<span class="status-badge status-pending">&#9679; PENDING SIGN-OFF</span><span style="font-size:12px;color:var(--muted);">QA Senior Manager: ${esc(APPROVER_NAME)}</span>`;}
 function buildApprovalRightHtml(){const s=state.sign||{},locked=!!(s.approved||s.rejected),ui=state.signUI;if(locked&&ui.confirmingUnlock)return `<div class="confirm-box"><span>Enter password to unlock:</span><input type="password" id="pwFieldUnlock" value="${esc(ui.pwInput)}"><button class="dz-btn btn-confirm" id="unlockYes">Confirm</button><button class="dz-btn btn-cancel-plain" id="unlockNo">Cancel</button>${ui.pwError?`<span class="pw-error">${esc(ui.pwError)}</span>`:''}</div>`;if(locked)return `<button class="dz-btn btn-unlock" id="unlockBtn">🔒 Unlock</button>`;if(ui.confirmingSign)return `<div class="confirm-box"><span>Enter password to sign off:</span><input type="password" id="pwField" value="${esc(ui.pwInput)}"><button class="dz-btn btn-confirm" id="signYes">Confirm</button><button class="dz-btn btn-cancel-plain" id="signNo">Cancel</button>${ui.pwError?`<span class="pw-error">${esc(ui.pwError)}</span>`:''}</div>`;if(ui.showSignOffActions&&ui.confirmingReject)return `<div class="confirm-box reject-box"><span>Reason for not signing:</span><textarea id="rejectCommentField" placeholder="Enter comment...">${esc(ui.rejectComment)}</textarea><div class="reject-actions"><button class="dz-btn" id="rejectYes">Submit</button><button class="dz-btn btn-cancel-plain" id="rejectCancelBtn">Cancel</button></div>${ui.pwError?`<span class="pw-error">${esc(ui.pwError)}</span>`:''}</div>`;if(ui.showSignOffActions)return `<div class="approval-actions"><button class="dz-btn btn-approve" id="approveBtn">Approved</button><button class="dz-btn btn-notsign" id="notSignBtn">Not Sign w/Comment</button><button class="dz-btn btn-cancel-plain" id="cancelActionBtn">Cancel</button></div>`;return `<button class="dz-btn btn-signoff" id="signOffBtn" ${state.entries.length?'':'disabled'}><svg viewBox="0 0 24 24" fill="none"><path d="M15.7 4.3a1 1 0 0 1 1.4 0l2.6 2.6a1 1 0 0 1 0 1.4L9.4 18.6l-4 1 1-4L15.7 4.3z" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Sign-Off</button>`;}
@@ -1013,7 +1075,24 @@ function confirmDeleteEntry(){
     });
 }
 
-function showPhoto(src){$('modalImage').src=src;$('photoModal').classList.add('show')}
+function showPhoto(src){
+  const img=$('modalImage');
+  // Hiển thị phóng to gấp đôi kích thước gốc của ảnh khi xem trong modal;
+  // KHÔNG ảnh hưởng đến ảnh lưu trữ hay ảnh chèn vào file Excel khi export
+  // (những nơi đó vẫn dùng nguyên dữ liệu ảnh gốc, không qua hàm này).
+  function applyDoubleSize(){
+    if(img.naturalWidth){
+      img.style.width=(img.naturalWidth*2)+'px';
+      img.style.height='auto';
+    }
+  }
+  img.style.width='';
+  img.style.height='';
+  img.onload=applyDoubleSize;
+  img.src=src;
+  if(img.complete && img.naturalWidth) applyDoubleSize();
+  $('photoModal').classList.add('show');
+}
 function ensureExcelJS(){
   return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
 }
@@ -1214,7 +1293,7 @@ $('btnRefresh').onclick=()=>{
   trackOp(gsRun('getData'))
     .then(function(data){
       applyServerData(data);
-      showToast('✓ Đã làm mới dữ liệu');
+      showSyncedBadge();
     })
     .catch(function(err){
       console.error(err);
@@ -1222,6 +1301,13 @@ $('btnRefresh').onclick=()=>{
     });
   setTimeout(()=>btn.classList.remove('spinning'),500);
 };
+function showSyncedBadge(){
+  const b=$('syncedBadge');
+  if(!b)return;
+  b.classList.add('show');
+  clearTimeout(showSyncedBadge._timer);
+  showSyncedBadge._timer=setTimeout(()=>b.classList.remove('show'),2000);
+}
 function showToast(msg){
   const t=$('toast');
   t.textContent=msg;
