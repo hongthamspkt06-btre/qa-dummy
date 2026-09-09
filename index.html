@@ -86,12 +86,20 @@ tr:hover td{background:#F7F9FB}
 .chart-bar-row{margin-bottom:8px}
 .chart-bar-track{background:#EEF1F4;border-radius:4px;height:10px;overflow:hidden}
 .chart-bar-fill{height:100%;border-radius:4px}
-.col-chart{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:14px}
+.col-chart-plot-row{display:flex;align-items:stretch}
+.col-yaxis{position:relative;width:18px;flex:0 0 18px;height:150px;margin-right:8px}
+.col-yaxis-tick{position:absolute;left:0;right:0;text-align:right;transform:translateY(50%);font-size:10px;color:var(--muted);line-height:1}
+.col-plot{position:relative;flex:1 1 auto;min-width:0;height:150px}
+.col-gridline{position:absolute;left:0;right:0;border-top:1px solid #EEF0F3}
+.col-chart{position:relative;display:flex;align-items:flex-end;gap:10px;height:100%}
 .col-bar-item{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-.col-bar-value{font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px}
-.col-bar-track{width:100%;max-width:36px;flex:1 1 auto;display:flex;align-items:flex-end;background:#EEF1F4;border-radius:4px 4px 0 0;overflow:hidden}
-.col-bar-fill{width:100%;border-radius:4px 4px 0 0;transition:height .2s}
-.col-bar-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col-bar-track{width:100%;max-width:36px;flex:1 1 auto;display:flex;align-items:flex-end;justify-content:center}
+.col-bar-fill{width:100%;border-radius:3px 3px 0 0;transition:height .2s;position:relative}
+.col-bar-value{position:absolute;left:50%;top:0;transform:translate(-50%,-100%);padding-bottom:4px;font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap}
+.col-xlabels-row{display:flex;margin-top:6px}
+.col-xlabels-spacer{width:26px;flex:0 0 26px}
+.col-xlabels{flex:1 1 auto;min-width:0;display:flex;gap:10px}
+.col-bar-label{flex:1 1 0;min-width:0;font-size:10px;color:var(--muted);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .loc-cell{display:flex;align-items:center;gap:6px}
 .loc-edit-btn{background:#EEF1F4;color:var(--navy);border:none;border-radius:5px;width:20px;height:20px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex:0 0 auto}
 .loc-edit-btn:hover{background:#E2E7EC}
@@ -602,21 +610,29 @@ function drawBarChart(containerId, dataArr){
   }).join('');
 }
 
+const COL_CHART_BAR_COLOR='#3B82F6';
 function drawColumnChart(containerId, dataArr){
   const el=$(containerId);
   if(!el)return;
   if(!dataArr.length){el.innerHTML='<div class="small-note" style="padding:20px 0;text-align:center">No data</div>';return;}
-  const max=Math.max(...dataArr.map(d=>d.value),1);
-  const cols=dataArr.map((d,i)=>{
-    const pct=(d.value/max*100).toFixed(1);
-    const color=CHART_COLORS[i%CHART_COLORS.length];
+  const dataMax=Math.max(...dataArr.map(d=>d.value),1);
+  const yMax=dataMax+1;
+  const yMid=Math.round(yMax/2);
+  const ticks=[0,yMid,yMax];
+  const yaxisHtml=ticks.map(v=>`<div class="col-yaxis-tick" style="bottom:${(v/yMax*100).toFixed(2)}%">${v}</div>`).join('');
+  const gridHtml=ticks.map(v=>`<div class="col-gridline" style="bottom:${(v/yMax*100).toFixed(2)}%"></div>`).join('');
+  const cols=dataArr.map(d=>{
+    const pct=(d.value/yMax*100).toFixed(2);
     return `<div class="col-bar-item">
-      <div class="col-bar-value">${d.value}</div>
-      <div class="col-bar-track"><div class="col-bar-fill" style="height:${pct}%;background:${color}"></div></div>
-      <div class="col-bar-label" title="${esc(d.label)}">${esc(d.label)}</div>
+      <div class="col-bar-track"><div class="col-bar-fill" style="height:${pct}%;background:${COL_CHART_BAR_COLOR}"><div class="col-bar-value">${d.value}</div></div></div>
     </div>`;
   }).join('');
-  el.innerHTML=`<div class="col-chart">${cols}</div>`;
+  const labels=dataArr.map(d=>`<div class="col-bar-label" title="${esc(d.label)}">${esc(d.label)}</div>`).join('');
+  el.innerHTML=`<div class="col-chart-plot-row">
+      <div class="col-yaxis">${yaxisHtml}</div>
+      <div class="col-plot">${gridHtml}<div class="col-chart">${cols}</div></div>
+    </div>
+    <div class="col-xlabels-row"><div class="col-xlabels-spacer"></div><div class="col-xlabels">${labels}</div></div>`;
 }
 
 function renderSummary(){
